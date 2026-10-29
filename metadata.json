@@ -1,0 +1,6 @@
+{
+  "name": "Marathon Squad Hub",
+  "description": "Nền tảng quản lý đăng ký Nhóm đua Marathon Đồng đội 42km và 21km, kiểm soát chỉ tiêu 18 VĐV theo thể lệ thi đấu chuyên nghiệp.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
