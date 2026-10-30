@@ -1,22 +1,16 @@
 import React, { useState } from 'react';
 import { Team, TeamMember, UserSession, TeamStatus } from '../types';
-import { calculateQuota, canSwitchRole } from '../utils/rules';
+import { calculateQuota } from '../utils/rules';
 import { api } from '../lib/database';
 import {
   X,
-  Users,
   ShieldCheck,
-  Key,
-  Copy,
-  Check,
-  ArrowUpDown,
-  UserMinus,
   Lock,
   Unlock,
   AlertCircle,
+  Check,
   Clock,
   Phone,
-  Mail,
   UserPlus,
   Edit3,
 } from 'lucide-react';
@@ -43,60 +37,9 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
   const isCaptain = team.user_id === currentUser.id;
   const quota = calculateQuota(members);
 
-  const [copiedPasscode, setCopiedPasscode] = useState(false);
-  const [processingId, setProcessingId] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  // Modal xác nhận loại thành viên
-  const [memberToKick, setMemberToKick] = useState<TeamMember | null>(null);
-
-  const handleCopyPasscode = () => {
-    navigator.clipboard.writeText(team.passcode);
-    setCopiedPasscode(true);
-    setTimeout(() => setCopiedPasscode(false), 2000);
-  };
-
-  const handleKickMember = async () => {
-    if (!memberToKick) return;
-    try {
-      setProcessingId(memberToKick.id);
-      setErrorMsg(null);
-      await api.kickMember(team.id, memberToKick.id);
-      setSuccessMsg(`Đã loại VĐV "${memberToKick.full_name}" khỏi đội hình.`);
-      setMemberToKick(null);
-      onRefresh();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Lỗi khi loại thành viên.');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleToggleRole = async (member: TeamMember) => {
-    const check = canSwitchRole(member, members);
-    if (!check.canSwitch) {
-      setErrorMsg(check.error || 'Không thể chuyển vai trò do slot đã đầy.');
-      setTimeout(() => setErrorMsg(null), 4000);
-      return;
-    }
-
-    try {
-      setProcessingId(member.id);
-      setErrorMsg(null);
-      const updated = await api.toggleMemberRole(team.id, member.id);
-      const roleText = updated.role === 'official' ? 'Chính thức' : 'Dự bị';
-      setSuccessMsg(`Đã chuyển VĐV "${member.full_name}" sang suất ${roleText}.`);
-      setTimeout(() => setSuccessMsg(null), 3000);
-      onRefresh();
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Lỗi khi chuyển đổi vai trò.');
-      setTimeout(() => setErrorMsg(null), 4000);
-    } finally {
-      setProcessingId(null);
-    }
-  };
 
   const handleUpdateStatus = async (newStatus: TeamStatus) => {
     try {
@@ -132,10 +75,10 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-4xl bg-white border border-slate-200 rounded-xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-slate-900">
+      <div className="relative w-full max-w-3xl bg-white border border-slate-200 rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-slate-900">
         {/* Header Bar */}
         <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/80 flex items-start justify-between gap-4">
-          <div className="space-y-1 min-w-0">
+          <div className="space-y-1.5 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-2.5 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-[#9f224e] text-white">
                 {team.category}
@@ -164,6 +107,7 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
               {team.name}
             </h2>
 
+            {/* Thông tin Đội trưởng dưới Title - Đã bỏ hiển thị Email */}
             <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-slate-600">
               <span>
                 Đội trưởng: <strong className="text-slate-800">{team.captain_name}</strong>
@@ -171,11 +115,6 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
               {team.captain_phone && (
                 <span className="flex items-center gap-1">
                   <Phone className="w-3 h-3 text-slate-400" /> {team.captain_phone}
-                </span>
-              )}
-              {team.captain_email && (
-                <span className="flex items-center gap-1">
-                  <Mail className="w-3 h-3 text-slate-400" /> {team.captain_email}
                 </span>
               )}
               <span className="flex items-center gap-1 text-slate-500">
@@ -187,7 +126,7 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -209,7 +148,7 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
 
         {/* Thân Modal */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Thanh Thao tác & Quản trị (Đã ẩn Passcode) */}
+          {/* Thanh Thao tác & Quản trị */}
           <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-3">
             <div className="text-xs text-slate-600">
               Trạng thái:{' '}
@@ -229,7 +168,7 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
                     onClose();
                     onNavigateToEdit(team.id);
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold uppercase transition-all flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold uppercase transition-all flex items-center gap-1.5"
                 >
                   <Edit3 className="w-3.5 h-3.5 text-amber-700" />
                   <span>Chỉnh sửa nhóm</span>
@@ -242,7 +181,7 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
                   className="px-3.5 py-1.5 rounded-lg bg-[#9f224e] hover:bg-[#851c41] text-white text-xs font-bold uppercase transition-all flex items-center gap-1.5"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
-                  Gia nhập đội
+                  Tham gia nhóm
                 </button>
               )}
 
@@ -273,7 +212,7 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
           {/* Tiến độ chỉ tiêu 18 thành viên */}
           <div className="space-y-3">
             <div className="flex items-center justify-between text-xs font-semibold">
-              <span className="text-slate-700">Chỉ tiêu thành viên thi đấu</span>
+              <span className="text-slate-700">Chỉ tiêu cơ cấu thành viên thi đấu</span>
               <span className="font-bold text-[#9f224e]">{quota.total}/18 VĐV</span>
             </div>
 
@@ -310,124 +249,32 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Bảng danh sách VĐV */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
-              Danh Sách Vận Động Viên ({members.length}/18)
-            </h3>
-
-            {members.length === 0 ? (
-              <div className="p-8 text-center rounded-lg bg-slate-50 border border-slate-200 text-slate-400 text-xs">
-                Chưa có vận động viên nào trong đội.
-              </div>
-            ) : (
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
-                    <tr>
-                      <th className="py-2.5 px-3">#</th>
-                      <th className="py-2.5 px-3">Họ và tên</th>
-                      <th className="py-2.5 px-3">Giới tính</th>
-                      <th className="py-2.5 px-3">Cự ly</th>
-                      <th className="py-2.5 px-3">Vai trò</th>
-                      {isCaptain && <th className="py-2.5 px-3 text-right">Thao tác</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {members.map((m, idx) => (
-                      <tr key={m.id} className="hover:bg-slate-50">
-                        <td className="py-2.5 px-3 text-slate-500 font-mono">{idx + 1}</td>
-                        <td className="py-2.5 px-3 font-medium text-slate-900">
-                          {m.full_name}
-                          {m.user_id === team.user_id && (
-                            <span className="ml-1.5 text-[10px] text-[#9f224e] font-semibold bg-rose-50 px-1.5 py-0.5 rounded">
-                              Đội trưởng
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-3">
-                          <span
-                            className={`px-2 py-0.5 rounded font-semibold text-[11px] ${
-                              m.gender === 'Nam'
-                                ? 'bg-blue-50 text-blue-700'
-                                : 'bg-rose-50 text-rose-700'
-                            }`}
-                          >
-                            {m.gender}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-800">{m.distance}</td>
-                        <td className="py-2.5 px-3">
-                          <span
-                            className={`px-2 py-0.5 rounded font-semibold text-[11px] ${
-                              m.role === 'official'
-                                ? 'bg-emerald-50 text-emerald-800'
-                                : 'bg-amber-50 text-amber-800'
-                            }`}
-                          >
-                            {m.role === 'official' ? 'Chính thức' : 'Dự bị'}
-                          </span>
-                        </td>
-                        {isCaptain && (
-                          <td className="py-2.5 px-3 text-right">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => handleToggleRole(m)}
-                                disabled={processingId === m.id}
-                                className="p-1 rounded text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition-colors"
-                                title="Đổi vai trò Chính thức / Dự bị"
-                              >
-                                <ArrowUpDown className="w-3.5 h-3.5" />
-                              </button>
-                              {m.user_id !== team.user_id && (
-                                <button
-                                  onClick={() => setMemberToKick(m)}
-                                  disabled={processingId === m.id}
-                                  className="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors"
-                                  title="Loại khỏi đội"
-                                >
-                                  <UserMinus className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Modal xác nhận loại thành viên */}
-        {memberToKick && (
-          <div className="absolute inset-0 z-10 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl border border-slate-200 p-5 max-w-sm w-full space-y-4 shadow-xl">
-              <h4 className="font-bold text-slate-900 text-sm">Xác nhận loại VĐV khỏi đội</h4>
-              <p className="text-xs text-slate-600">
-                Bạn có chắc chắn muốn loại <strong>{memberToKick.full_name}</strong> khỏi đội hình?
-              </p>
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setMemberToKick(null)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-semibold"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleKickMember}
-                  className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold"
-                >
-                  Xác nhận loại
-                </button>
-              </div>
+            {/* Thanh tiến độ */}
+            <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden flex">
+              <div
+                style={{ width: `${(quota.officialMale / 18) * 100}%` }}
+                className="bg-blue-600 h-full"
+                title={`Nam chính thức: ${quota.officialMale}/10`}
+              />
+              <div
+                style={{ width: `${(quota.officialFemale / 18) * 100}%` }}
+                className="bg-rose-500 h-full"
+                title={`Nữ chính thức: ${quota.officialFemale}/5`}
+              />
+              <div
+                style={{ width: `${(quota.reserveMale / 18) * 100}%` }}
+                className="bg-sky-400 h-full"
+                title={`Nam dự bị: ${quota.reserveMale}/2`}
+              />
+              <div
+                style={{ width: `${(quota.reserveFemale / 18) * 100}%` }}
+                className="bg-pink-400 h-full"
+                title={`Nữ dự bị: ${quota.reserveFemale}/1`}
+              />
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

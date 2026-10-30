@@ -73,6 +73,47 @@ export default function App() {
     loadData();
   };
 
+  // Tối ưu khi nhúng iFrame trên VnExpress:
+  // 1. Tự động gửi chiều cao thực tế về trang cha qua postMessage để trang cha chỉnh iframe height (chống thanh cuộn đôi)
+  // 2. Tự động cuộn lên đầu trang khi chuyển màn hình
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    if (typeof window === 'undefined' || window.self === window.top) return;
+
+    window.parent.postMessage({ type: 'VNE_MARATHON_SCROLL_TOP' }, '*');
+
+    const reportHeight = () => {
+      const height = Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight,
+        document.documentElement.offsetHeight
+      );
+      window.parent.postMessage(
+        {
+          type: 'VNE_MARATHON_RESIZE',
+          height,
+          screen: currentScreen,
+        },
+        '*'
+      );
+    };
+
+    reportHeight();
+    const timeout = setTimeout(reportHeight, 300);
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => reportHeight());
+      observer.observe(document.body);
+    }
+
+    return () => {
+      clearTimeout(timeout);
+      if (observer) observer.disconnect();
+    };
+  }, [currentScreen, teams.length, members.length, selectedTeam]);
+
   const handleTeamCreated = (newTeam: Team) => {
     loadData();
     setSelectedTeam(newTeam);

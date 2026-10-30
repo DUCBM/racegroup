@@ -7,6 +7,35 @@ export const MAX_RESERVE_MALE = 2;
 export const MAX_RESERVE_FEMALE = 1;
 
 /**
+ * Chuẩn hóa giới tính từ database (M/m/male/nam -> 'Nam', F/f/female/nu/nữ -> 'Nữ')
+ */
+export function parseGender(raw: any): MemberGender {
+  if (raw === null || raw === undefined) return 'Nam';
+  const str = String(raw).trim().toLowerCase();
+  if (!str) return 'Nam';
+
+  // Kiểm tra các định dạng Nữ: F, Female, Nữ, Nu, Woman, W, 2
+  if (
+    str === 'f' ||
+    str === 'female' ||
+    str === 'w' ||
+    str === 'woman' ||
+    str === 'nu' ||
+    str === 'nữ' ||
+    str === '2' ||
+    str.startsWith('f') ||
+    str.includes('nữ') ||
+    str.includes('nu') ||
+    str.includes('female')
+  ) {
+    return 'Nữ';
+  }
+
+  // Mặc định là Nam (M, Male, Nam, 1...)
+  return 'Nam';
+}
+
+/**
  * Calculates current quota breakdown for a squad of marathon runners
  */
 export function calculateQuota(members: TeamMember[]): TeamQuotaBreakdown {
@@ -16,12 +45,13 @@ export function calculateQuota(members: TeamMember[]): TeamQuotaBreakdown {
   let reserveFemale = 0;
 
   for (const m of members) {
+    const g = parseGender(m.gender);
     if (m.role === 'official') {
-      if (m.gender === 'Nam') officialMale++;
-      else if (m.gender === 'Nữ') officialFemale++;
+      if (g === 'Nam') officialMale++;
+      else if (g === 'Nữ') officialFemale++;
     } else if (m.role === 'reserve') {
-      if (m.gender === 'Nam') reserveMale++;
-      else if (m.gender === 'Nữ') reserveFemale++;
+      if (g === 'Nam') reserveMale++;
+      else if (g === 'Nữ') reserveFemale++;
     }
   }
 
@@ -64,6 +94,7 @@ export function validateSlotAvailability(
   role: MemberRole
 ): { valid: boolean; error?: string } {
   const quota = calculateQuota(members);
+  const g = parseGender(gender);
 
   if (quota.total >= MAX_TOTAL) {
     return {
@@ -73,7 +104,7 @@ export function validateSlotAvailability(
   }
 
   if (role === 'official') {
-    if (gender === 'Nam') {
+    if (g === 'Nam') {
       if (quota.officialMale >= MAX_OFFICIAL_MALE) {
         return {
           valid: false,
@@ -90,7 +121,7 @@ export function validateSlotAvailability(
     }
   } else {
     // reserve
-    if (gender === 'Nam') {
+    if (g === 'Nam') {
       if (quota.reserveMale >= MAX_RESERVE_MALE) {
         return {
           valid: false,
@@ -122,9 +153,10 @@ export function canSwitchRole(
   // Exclude current member when testing slot in new role
   const otherMembers = allMembers.filter((m) => m.id !== member.id);
   const quota = calculateQuota(otherMembers);
+  const g = parseGender(member.gender);
 
   if (targetRole === 'official') {
-    if (member.gender === 'Nam') {
+    if (g === 'Nam') {
       if (quota.officialMale >= MAX_OFFICIAL_MALE) {
         return {
           canSwitch: false,
@@ -143,7 +175,7 @@ export function canSwitchRole(
     }
   } else {
     // Switching to reserve
-    if (member.gender === 'Nam') {
+    if (g === 'Nam') {
       if (quota.reserveMale >= MAX_RESERVE_MALE) {
         return {
           canSwitch: false,

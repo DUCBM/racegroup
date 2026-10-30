@@ -56,7 +56,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <UserPlus className="w-4 h-4" />
-              <span>Gia nhập nhóm</span>
+              <span>Tham gia nhóm</span>
             </button>
 
             <button
@@ -73,12 +73,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <button
               onClick={onOpenRulesModal}
-              className="px-3 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
-              title="Xem thể lệ cơ cấu 18 VĐV"
+              className="px-3 py-2 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 uppercase tracking-wider"
+              title="Xem điều lệ thi đấu"
             >
               <BookOpen className="w-4 h-4 text-[#9f224e]" />
-              <span className="hidden sm:inline">Thể lệ 18 VĐV</span>
-              <span className="sm:hidden">Thể lệ</span>
+              <span className="hidden sm:inline">Điều lệ thi đấu</span>
+              <span className="sm:hidden">Điều lệ</span>
             </button>
           </nav>
         </div>

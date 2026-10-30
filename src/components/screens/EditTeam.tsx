@@ -19,7 +19,6 @@ import {
   Loader2,
   Info,
   Phone,
-  Mail,
   UserPlus,
   RefreshCw,
   Edit3,
@@ -455,11 +454,6 @@ export const EditTeam: React.FC<EditTeamProps> = ({
                     {currentTeam.captain_phone && (
                       <span className="flex items-center gap-1">
                         <Phone className="w-3 h-3 text-slate-400" /> SĐT: {currentTeam.captain_phone}
-                      </span>
-                    )}
-                    {currentTeam.captain_email && (
-                      <span className="flex items-center gap-1">
-                        <Mail className="w-3 h-3 text-slate-400" /> Email: {currentTeam.captain_email}
                       </span>
                     )}
                     <span className="flex items-center gap-1 font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded">

@@ -1,5 +1,5 @@
 import { MarathonRegistration, MemberGender, MemberRole, Team, TeamCategory, TeamMember, TeamStatus, UserSession } from '../types';
-import { calculateQuota, canSwitchRole, validateSlotAvailability } from '../utils/rules';
+import { calculateQuota, canSwitchRole, parseGender, validateSlotAvailability } from '../utils/rules';
 import { getSupabaseClient } from './supabase';
 
 const STORAGE_KEY_TEAMS = 'marathon_teams_real_v2';
@@ -33,7 +33,11 @@ function loadLocalTeams(): Team[] {
 }
 
 function saveLocalTeams(teams: Team[]) {
-  localStorage.setItem(STORAGE_KEY_TEAMS, JSON.stringify(teams));
+  try {
+    localStorage.setItem(STORAGE_KEY_TEAMS, JSON.stringify(teams));
+  } catch (e) {
+    console.warn('LocalStorage saveLocalTeams error (likely iframe sandbox):', e);
+  }
 }
 
 function loadLocalMembers(): TeamMember[] {
@@ -41,14 +45,20 @@ function loadLocalMembers(): TeamMember[] {
     const raw = localStorage.getItem(STORAGE_KEY_MEMBERS);
     if (!raw) return [];
     const list: TeamMember[] = JSON.parse(raw);
-    return list.filter((m) => !m.id.startsWith('m-'));
+    return list
+      .filter((m) => !m.id.startsWith('m-'))
+      .map((m) => ({ ...m, gender: parseGender(m.gender) }));
   } catch {
     return [];
   }
 }
 
 function saveLocalMembers(members: TeamMember[]) {
-  localStorage.setItem(STORAGE_KEY_MEMBERS, JSON.stringify(members));
+  try {
+    localStorage.setItem(STORAGE_KEY_MEMBERS, JSON.stringify(members));
+  } catch (e) {
+    console.warn('LocalStorage saveLocalMembers error (likely iframe sandbox):', e);
+  }
 }
 
 // Session management
@@ -56,7 +66,9 @@ export function getCurrentUser(): UserSession {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_USER);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(DEFAULT_USER));
+      try {
+        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(DEFAULT_USER));
+      } catch {}
       return DEFAULT_USER;
     }
     return JSON.parse(raw);
@@ -66,7 +78,11 @@ export function getCurrentUser(): UserSession {
 }
 
 export function setCurrentUser(user: UserSession) {
-  localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+  try {
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+  } catch (e) {
+    console.warn('LocalStorage setCurrentUser error (likely iframe sandbox):', e);
+  }
 }
 
 // Generate random UUID
@@ -104,13 +120,11 @@ export const api = {
         const { data, error } = await query.maybeSingle();
 
         if (!error && data) {
-          let gender: MemberGender = 'Nam';
-          const rawGender = String(data.gioi_tinh || '').trim().toLowerCase();
-          if (rawGender.includes('nữ') || rawGender.includes('nu') || rawGender.includes('female')) {
-            gender = 'Nữ';
-          }
+          // Chuẩn hóa giới tính: M/m -> Nam, F/f -> Nữ
+          const rawGenderField = data.gioi_tinh ?? data.gender ?? data.sex ?? data.gioitinh ?? '';
+          const gender: MemberGender = parseGender(rawGenderField);
 
-          let dist = String(data.cu_ly || '').trim();
+          let dist = String(data.cu_ly || data.distance || '').trim();
           if (/42/i.test(dist)) dist = '42km';
           else if (/21/i.test(dist)) dist = '21km';
           else if (/10/i.test(dist)) dist = '10km';
@@ -142,9 +156,11 @@ export const api = {
    * Reset local storage
    */
   resetSampleData() {
-    localStorage.removeItem(STORAGE_KEY_TEAMS);
-    localStorage.removeItem(STORAGE_KEY_MEMBERS);
-    localStorage.removeItem(STORAGE_KEY_USER);
+    try {
+      localStorage.removeItem(STORAGE_KEY_TEAMS);
+      localStorage.removeItem(STORAGE_KEY_MEMBERS);
+      localStorage.removeItem(STORAGE_KEY_USER);
+    } catch {}
   },
 
   /**
@@ -202,7 +218,10 @@ export const api = {
           .eq('team_id', teamId)
           .order('joined_at', { ascending: true });
         if (!error && data) {
-          return data as TeamMember[];
+          return (data as any[]).map((m) => ({
+            ...m,
+            gender: parseGender(m.gender ?? m.gioi_tinh),
+          })) as TeamMember[];
         }
       } catch (e) {
         console.warn('Supabase getTeamMembers error:', e);
@@ -224,7 +243,10 @@ export const api = {
         const { data, error } = await supabase.from('team_members').select('*');
         if (!error && data) {
           lastDbError = null;
-          return data as TeamMember[];
+          return (data as any[]).map((m) => ({
+            ...m,
+            gender: parseGender(m.gender ?? m.gioi_tinh),
+          })) as TeamMember[];
         }
         if (error) {
           console.warn('Supabase getAllMembers warning:', error);
@@ -310,7 +332,7 @@ export const api = {
       team_id: teamId,
       bib_number: captainMemberInput.bib_number?.trim() || null,
       full_name: `${teamInput.captain_name.trim()} (Đội trưởng)`,
-      gender: captainMemberInput.gender,
+      gender: parseGender(captainMemberInput.gender),
       distance: captainMemberInput.distance || teamInput.category,
       role: captainMemberInput.role,
       joined_at: now,
@@ -382,7 +404,7 @@ export const api = {
       teamId = arg1.teamId;
       userId = arg1.userId || generateUUID();
       fullName = arg1.fullName;
-      gender = arg1.gender;
+      gender = parseGender(arg1.gender);
       distance = arg1.distance;
       role = arg1.role;
       bibNumber = arg1.bibNumber || null;
@@ -392,7 +414,7 @@ export const api = {
       passcode = arg2 || null;
       userId = arg3?.user_id || generateUUID();
       fullName = arg3?.full_name || '';
-      gender = arg3?.gender || 'Nam';
+      gender = parseGender(arg3?.gender || 'Nam');
       distance = arg3?.distance || '42km';
       role = arg3?.role || 'official';
       bibNumber = arg3?.bib_number || null;

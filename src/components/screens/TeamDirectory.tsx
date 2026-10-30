@@ -64,7 +64,15 @@ ALTER TABLE public.marathon_registrations DISABLE ROW LEVEL SECURITY;`;
       team.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       team.captain_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchCategory = categoryFilter === 'all' || team.category === categoryFilter;
-    const matchStatus = statusFilter === 'all' || team.status === statusFilter;
+    const teamMems = members.filter((m) => m.team_id === team.id);
+    const isCompleted = teamMems.length >= 18 || team.status === 'completed';
+    const matchStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'completed'
+        ? isCompleted
+        : statusFilter === 'recruiting'
+        ? team.status === 'recruiting' && !isCompleted
+        : team.status === statusFilter);
     return matchSearch && matchCategory && matchStatus;
   });
 
@@ -101,7 +109,7 @@ ALTER TABLE public.marathon_registrations DISABLE ROW LEVEL SECURITY;`;
               className="px-4 py-2.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all active:scale-95"
             >
               <UserPlus className="w-4 h-4 text-[#9f224e]" />
-              <span>Gia nhập nhóm</span>
+              <span>Tham gia nhóm</span>
             </button>
             <button
               onClick={() => onNavigate('edit')}
@@ -249,7 +257,7 @@ ALTER TABLE public.marathon_registrations DISABLE ROW LEVEL SECURITY;`;
           >
             <option value="all">Tất cả trạng thái</option>
             <option value="recruiting">Đang gom quân</option>
-            <option value="completed">Đủ 18 người</option>
+            <option value="completed">✓ Đã hoàn thành (18/18)</option>
             <option value="locked">Đã khóa sổ</option>
           </select>
         </div>
@@ -277,38 +285,42 @@ ALTER TABLE public.marathon_registrations DISABLE ROW LEVEL SECURITY;`;
           {filteredTeams.map((team) => {
             const teamMembers = members.filter((m) => m.team_id === team.id);
             const quota = calculateQuota(teamMembers);
+            const isCompleted = quota.total >= 18 || team.status === 'completed';
 
             const getStatusBadge = () => {
-              switch (team.status) {
-                case 'recruiting':
-                  return (
-                    <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Đang gom quân
-                    </span>
-                  );
-                case 'completed':
-                  return (
-                    <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-blue-50 border border-blue-200 text-blue-700 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
-                      Đủ 18 người
-                    </span>
-                  );
-                case 'locked':
-                  return (
-                    <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 border border-slate-300 text-slate-700 flex items-center gap-1">
-                      <Lock className="w-3 h-3 text-slate-500" />
-                      Đã khóa sổ
-                    </span>
-                  );
+              if (team.status === 'locked') {
+                return (
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full font-semibold bg-slate-100 border border-slate-300 text-slate-700 flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-slate-500" />
+                    Đã khóa sổ
+                  </span>
+                );
               }
+
+              if (isCompleted) {
+                return (
+                  <span className="text-[11px] px-2.5 py-0.5 rounded-full font-bold bg-emerald-50 border border-emerald-300 text-emerald-800 flex items-center gap-1 shadow-2xs">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    Đã hoàn thành (18/18)
+                  </span>
+                );
+              }
+
+              return (
+                <span className="text-[11px] px-2.5 py-0.5 rounded-full font-semibold bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Đang gom quân
+                </span>
+              );
             };
 
             return (
               <div
                 key={team.id}
                 onClick={() => onSelectTeam(team)}
-                className="group relative rounded-xl bg-white border border-slate-200 hover:border-[#9f224e]/50 p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between"
+                className={`group relative rounded-xl bg-white border p-5 shadow-xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between ${
+                  isCompleted ? 'border-emerald-300/80 hover:border-emerald-500' : 'border-slate-200 hover:border-[#9f224e]/50'
+                }`}
               >
                 <div className="space-y-3.5">
                   {/* Cự ly & Trạng thái */}
@@ -331,15 +343,22 @@ ALTER TABLE public.marathon_registrations DISABLE ROW LEVEL SECURITY;`;
                   </div>
 
                   {/* Tiến độ số lượng 18 VĐV */}
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 space-y-2">
+                  <div className={`p-3 rounded-lg border space-y-2 ${isCompleted ? 'bg-emerald-50/40 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-slate-600 font-medium flex items-center gap-1">
                         <Users className="w-3.5 h-3.5 text-[#9f224e]" /> Tiến độ thành viên:
                       </span>
-                      <span className="font-mono font-bold text-slate-900 text-sm">
-                        {quota.total}
-                        <span className="text-xs text-slate-400 font-normal">/18 VĐV</span>
-                      </span>
+                      {isCompleted ? (
+                        <span className="font-mono font-bold text-emerald-700 text-sm flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>18/18 VĐV</span>
+                        </span>
+                      ) : (
+                        <span className="font-mono font-bold text-slate-900 text-sm">
+                          {quota.total}
+                          <span className="text-xs text-slate-400 font-normal">/18 VĐV</span>
+                        </span>
+                      )}
                     </div>
 
                     {/* Thanh tiến độ */}
@@ -368,19 +387,29 @@ ALTER TABLE public.marathon_registrations DISABLE ROW LEVEL SECURITY;`;
 
                     {/* Chi tiết Chính thức & Dự bị */}
                     <div className="grid grid-cols-2 gap-1 text-[11px] pt-0.5 text-slate-500">
-                      <div>
-                        Chính thức:{' '}
-                        <span className="font-mono font-semibold text-slate-800">
+                      <div className="flex items-center gap-1">
+                        <span>Chính thức:</span>{' '}
+                        <span className={`font-mono font-semibold ${quota.officialCount >= 15 ? 'text-emerald-700' : 'text-slate-800'}`}>
                           {quota.officialCount}/15
                         </span>
+                        {quota.officialCount >= 15 && <Check className="w-3 h-3 text-emerald-600 inline" />}
                       </div>
-                      <div className="text-right">
-                        Dự bị:{' '}
-                        <span className="font-mono font-semibold text-slate-800">
+                      <div className="text-right flex items-center justify-end gap-1">
+                        <span>Dự bị:</span>{' '}
+                        <span className={`font-mono font-semibold ${quota.reserveCount >= 3 ? 'text-emerald-700' : 'text-slate-800'}`}>
                           {quota.reserveCount}/3
                         </span>
+                        {quota.reserveCount >= 3 && <Check className="w-3 h-3 text-emerald-600 inline" />}
                       </div>
                     </div>
+
+                    {/* Badge tích xanh hoàn thành đội hình */}
+                    {isCompleted && (
+                      <div className="pt-1.5 mt-0.5 border-t border-emerald-200/70 flex items-center justify-center gap-1.5 text-[11px] font-bold text-emerald-800">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Đã hoàn thành 100% đội hình</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

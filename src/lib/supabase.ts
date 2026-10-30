@@ -23,8 +23,14 @@ export function getStoredSupabaseConfig() {
   const envUrl = (import.meta.env.VITE_SUPABASE_URL as string) || '';
   const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || '';
 
-  const storedUrl = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_URL) || '' : '';
-  const storedKey = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_KEY) || '' : '';
+  let storedUrl = '';
+  let storedKey = '';
+  try {
+    if (typeof window !== 'undefined') {
+      storedUrl = localStorage.getItem(STORAGE_KEY_URL) || '';
+      storedKey = localStorage.getItem(STORAGE_KEY_KEY) || '';
+    }
+  } catch {}
 
   const resolvedUrl = cleanSupabaseUrl(storedUrl || envUrl || DEFAULT_SUPABASE_URL);
   const resolvedKey = (storedKey || envKey || DEFAULT_SUPABASE_ANON_KEY).trim();
@@ -37,14 +43,16 @@ export function getStoredSupabaseConfig() {
 }
 
 export function saveSupabaseConfig(url: string, anonKey: string) {
-  if (typeof window !== 'undefined') {
-    const cleaned = cleanSupabaseUrl(url);
-    if (cleaned) localStorage.setItem(STORAGE_KEY_URL, cleaned);
-    else localStorage.removeItem(STORAGE_KEY_URL);
+  try {
+    if (typeof window !== 'undefined') {
+      const cleaned = cleanSupabaseUrl(url);
+      if (cleaned) localStorage.setItem(STORAGE_KEY_URL, cleaned);
+      else localStorage.removeItem(STORAGE_KEY_URL);
 
-    if (anonKey) localStorage.setItem(STORAGE_KEY_KEY, anonKey.trim());
-    else localStorage.removeItem(STORAGE_KEY_KEY);
-  }
+      if (anonKey) localStorage.setItem(STORAGE_KEY_KEY, anonKey.trim());
+      else localStorage.removeItem(STORAGE_KEY_KEY);
+    }
+  } catch {}
   // Reset client instance
   supabaseInstance = null;
 }

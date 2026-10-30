@@ -507,7 +507,15 @@ export const CreateTeam: React.FC<CreateTeamProps> = ({
 
                   <div className="p-2.5 rounded-lg bg-white border border-slate-200">
                     <div className="text-[10px] uppercase text-slate-500 font-semibold mb-0.5">Giới tính</div>
-                    <div className="text-xs font-bold text-slate-800">{captainAthleteInfo.gioi_tinh || '---'}</div>
+                    <div>
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-bold ${
+                        captainAthleteInfo.gioi_tinh === 'Nữ'
+                          ? 'bg-rose-100 text-rose-700 border border-rose-200'
+                          : 'bg-blue-100 text-blue-700 border border-blue-200'
+                      }`}>
+                        {captainAthleteInfo.gioi_tinh || '---'}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="p-2.5 rounded-lg bg-white border border-slate-200">
