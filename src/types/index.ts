@@ -88,4 +88,4 @@ export interface UserSession {
   isCaptain?: boolean;
 }
 
-export type ActiveScreen = 'directory' | 'create' | 'join';
+export type ActiveScreen = 'directory' | 'create' | 'join' | 'edit';

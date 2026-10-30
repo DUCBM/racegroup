@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActiveScreen, UserSession } from '../types';
-import { PlusCircle, UserPlus, Trophy, BookOpen } from 'lucide-react';
+import { PlusCircle, UserPlus, Trophy, BookOpen, Edit3 } from 'lucide-react';
 
 interface NavbarProps {
   currentScreen: ActiveScreen;
@@ -57,6 +57,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <UserPlus className="w-4 h-4" />
               <span>Gia nhập nhóm</span>
+            </button>
+
+            <button
+              onClick={() => onNavigate('edit')}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
+                currentScreen === 'edit'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Chỉnh sửa nhóm</span>
             </button>
 
             <button

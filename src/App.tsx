@@ -18,6 +18,7 @@ import { TeamDetailModal } from './components/TeamDetailModal';
 import { TeamDirectory } from './components/screens/TeamDirectory';
 import { CreateTeam } from './components/screens/CreateTeam';
 import { JoinTeam } from './components/screens/JoinTeam';
+import { EditTeam } from './components/screens/EditTeam';
 import { Flame, RefreshCw, Trophy } from 'lucide-react';
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
   const [isSupabaseOpen, setIsSupabaseOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [targetJoinTeamId, setTargetJoinTeamId] = useState<string | undefined>(undefined);
+  const [targetEditTeamId, setTargetEditTeamId] = useState<string | undefined>(undefined);
 
   // Supabase state
   const [supabaseConfig, setSupabaseConfig] = useState(getStoredSupabaseConfig());
@@ -88,6 +90,11 @@ export default function App() {
     setCurrentScreen('join');
   };
 
+  const handleNavigateToEdit = (teamId?: string) => {
+    setTargetEditTeamId(teamId);
+    setCurrentScreen('edit');
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans selection:bg-[#9f224e] selection:text-white">
       {/* Top Bar Navigation */}
@@ -96,6 +103,7 @@ export default function App() {
         onNavigate={(screen) => {
           setCurrentScreen(screen);
           setTargetJoinTeamId(undefined);
+          setTargetEditTeamId(undefined);
         }}
         currentUser={currentUser}
         onOpenUserModal={() => setIsUserModalOpen(true)}
@@ -122,6 +130,7 @@ export default function App() {
                 members={members}
                 onSelectTeam={(team) => setSelectedTeam(team)}
                 onNavigate={(screen) => setCurrentScreen(screen)}
+                onEditTeam={(team) => handleNavigateToEdit(team.id)}
               />
             )}
 
@@ -151,6 +160,22 @@ export default function App() {
                 }}
               />
             )}
+
+            {/* Screen 4: Edit Team */}
+            {currentScreen === 'edit' && (
+              <EditTeam
+                teams={teams}
+                members={members}
+                currentUser={currentUser}
+                initialTeamId={targetEditTeamId}
+                onCancel={() => {
+                  setCurrentScreen('directory');
+                  setTargetEditTeamId(undefined);
+                }}
+                onRefreshData={loadData}
+                onNavigateToJoin={handleNavigateToJoinWithTeam}
+              />
+            )}
           </>
         )}
       </main>
@@ -164,6 +189,7 @@ export default function App() {
           onClose={() => setSelectedTeam(null)}
           onRefresh={loadData}
           onNavigateToJoin={handleNavigateToJoinWithTeam}
+          onNavigateToEdit={handleNavigateToEdit}
         />
       )}
 

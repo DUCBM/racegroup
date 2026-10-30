@@ -17,7 +17,8 @@ import {
   Clock,
   Phone,
   Mail,
-  UserPlus
+  UserPlus,
+  Edit3,
 } from 'lucide-react';
 
 interface TeamDetailModalProps {
@@ -27,6 +28,7 @@ interface TeamDetailModalProps {
   onClose: () => void;
   onRefresh: () => void;
   onNavigateToJoin: (teamId: string) => void;
+  onNavigateToEdit?: (teamId: string) => void;
 }
 
 export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
@@ -36,6 +38,7 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
   onClose,
   onRefresh,
   onNavigateToJoin,
+  onNavigateToEdit,
 }) => {
   const isCaptain = team.user_id === currentUser.id;
   const quota = calculateQuota(members);
@@ -220,6 +223,19 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {onNavigateToEdit && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onNavigateToEdit(team.id);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold uppercase transition-all flex items-center gap-1.5"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Chỉnh sửa nhóm</span>
+                </button>
+              )}
+
               {team.status === 'recruiting' && quota.total < 18 && (
                 <button
                   onClick={() => onNavigateToJoin(team.id)}
