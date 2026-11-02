@@ -494,15 +494,6 @@ export const EditTeam: React.FC<EditTeamProps> = ({
                       <span>Mở gom quân</span>
                     </button>
                   )}
-
-                  <button
-                    onClick={() => setIsAuthenticated(false)}
-                    className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 text-xs font-semibold transition-colors flex items-center gap-1"
-                    title="Khóa lại phiên chỉnh sửa"
-                  >
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>Khóa phiên</span>
-                  </button>
                 </div>
               </div>
             </div>
