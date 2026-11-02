@@ -341,7 +341,7 @@ export const EditTeam: React.FC<EditTeamProps> = ({
               {/* Mã đăng ký VĐV của Đội trưởng */}
               <div>
                 <label className="block text-xs font-bold text-slate-800 mb-1.5 uppercase tracking-wide">
-                  2. Mã đăng ký VĐV của Đội trưởng (user_id / SĐT) <span className="text-rose-500">*</span>
+                  2. Mã đăng ký VĐV của Đội trưởng <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -355,7 +355,7 @@ export const EditTeam: React.FC<EditTeamProps> = ({
                   <FileCheck2 className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1">
-                  * Mã bạn nhận được tại email xác nhận đăng ký giải thành công (hoặc SĐT đã đăng ký Đội trưởng).
+                  * Mã bạn nhận được tại email xác nhận đăng ký giải thành công
                 </p>
               </div>
 
