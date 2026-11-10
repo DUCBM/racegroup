@@ -81,6 +81,15 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="sm:hidden">Điều lệ</span>
             </button>
           </nav>
+
+          {currentScreen === 'admin' && (
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                Chế độ Quản trị
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </header>

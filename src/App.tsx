@@ -19,10 +19,29 @@ import { TeamDirectory } from './components/screens/TeamDirectory';
 import { CreateTeam } from './components/screens/CreateTeam';
 import { JoinTeam } from './components/screens/JoinTeam';
 import { EditTeam } from './components/screens/EditTeam';
+import { AdminDashboard } from './components/screens/AdminDashboard';
 import { Flame, RefreshCw, Trophy } from 'lucide-react';
 
+function checkIsAdminRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  const path = (window.location.pathname || '').toLowerCase();
+  const hash = (window.location.hash || '').toLowerCase();
+  const search = (window.location.search || '').toLowerCase();
+  return (
+    path === '/admin' ||
+    path === '/admin/' ||
+    path.endsWith('/admin') ||
+    path.endsWith('/admin/') ||
+    hash === '#/admin' ||
+    hash === '#admin' ||
+    search.includes('admin')
+  );
+}
+
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<ActiveScreen>('directory');
+  const [currentScreen, setCurrentScreen] = useState<ActiveScreen>(() => {
+    return checkIsAdminRoute() ? 'admin' : 'directory';
+  });
   const [teams, setTeams] = useState<Team[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,42 +93,58 @@ export default function App() {
   };
 
   // Tối ưu khi nhúng iFrame trên VnExpress:
-  // 1. Tự động gửi chiều cao thực tế về trang cha qua postMessage để trang cha chỉnh iframe height (chống thanh cuộn đôi)
-  // 2. Tự động cuộn lên đầu trang khi chuyển màn hình
+  // 1. Tự động gửi chiều cao thực tế về trang cha qua postMessage để iframe co giãn tự nhiên theo trang (loại bỏ hoàn toàn thanh cuộn riêng)
+  // 2. Tự động cuộn trang cha lên đầu khi chuyển màn hình
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
 
     if (typeof window === 'undefined' || window.self === window.top) return;
 
     window.parent.postMessage({ type: 'VNE_MARATHON_SCROLL_TOP' }, '*');
 
     const reportHeight = () => {
-      const height = Math.max(
-        document.documentElement.scrollHeight,
-        document.body.scrollHeight,
-        document.documentElement.offsetHeight
+      const root = document.getElementById('root');
+      const body = document.body;
+      const html = document.documentElement;
+
+      const contentHeight = Math.max(
+        root ? root.scrollHeight : 0,
+        body.scrollHeight,
+        body.offsetHeight,
+        html.clientHeight,
+        html.scrollHeight,
+        html.offsetHeight
       );
+
+      // Thêm 24px đệm an toàn để trình duyệt không kích hoạt thanh cuộn do sai số pixel
+      const finalHeight = contentHeight + 24;
+
       window.parent.postMessage(
         {
           type: 'VNE_MARATHON_RESIZE',
-          height,
+          height: finalHeight,
           screen: currentScreen,
         },
         '*'
       );
     };
 
+    // Báo ngay lập tức và sau khi animation / render hoàn tất
     reportHeight();
-    const timeout = setTimeout(reportHeight, 300);
+    const t1 = setTimeout(reportHeight, 150);
+    const t2 = setTimeout(reportHeight, 400);
 
     let observer: ResizeObserver | null = null;
     if (typeof ResizeObserver !== 'undefined') {
       observer = new ResizeObserver(() => reportHeight());
       observer.observe(document.body);
+      const root = document.getElementById('root');
+      if (root) observer.observe(root);
     }
 
     return () => {
-      clearTimeout(timeout);
+      clearTimeout(t1);
+      clearTimeout(t2);
       if (observer) observer.disconnect();
     };
   }, [currentScreen, teams.length, members.length, selectedTeam]);
@@ -123,6 +158,32 @@ export default function App() {
   const handleJoined = (team: Team) => {
     loadData();
     setSelectedTeam(team);
+    setCurrentScreen('directory');
+  };
+
+  // Lắng nghe thay đổi URL (hỗ trợ truy cập /admin hoặc #/admin ẩn)
+  useEffect(() => {
+    const handleUrlChange = () => {
+      if (checkIsAdminRoute()) {
+        setCurrentScreen('admin');
+      }
+    };
+
+    window.addEventListener('popstate', handleUrlChange);
+    window.addEventListener('hashchange', handleUrlChange);
+
+    return () => {
+      window.removeEventListener('popstate', handleUrlChange);
+      window.removeEventListener('hashchange', handleUrlChange);
+    };
+  }, []);
+
+  const handleBackFromAdmin = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.pushState({}, '', window.location.pathname.replace(/\/admin\/?$/i, '') || '/');
+      } catch {}
+    }
     setCurrentScreen('directory');
   };
 
@@ -215,6 +276,16 @@ export default function App() {
                 }}
                 onRefreshData={loadData}
                 onNavigateToJoin={handleNavigateToJoinWithTeam}
+              />
+            )}
+
+            {/* Screen 5: Admin Dashboard (Hidden URL: /admin) */}
+            {currentScreen === 'admin' && (
+              <AdminDashboard
+                teams={teams}
+                members={members}
+                onBackToHome={handleBackFromAdmin}
+                onRefreshData={loadData}
               />
             )}
           </>

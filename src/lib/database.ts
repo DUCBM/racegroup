@@ -149,6 +149,33 @@ export const api = {
       }
     }
 
+    // Tra cứu dự phòng trực tiếp từ Google Sheets TSV chính thức của BTC
+    try {
+      const { fetchGoogleSheetRunners } = await import('./googleSheets');
+      const { runners } = await fetchGoogleSheetRunners();
+      const directMatch = runners.get(trimmed);
+      const matched =
+        directMatch ||
+        Array.from(runners.values()).find(
+          (r) => r.phone === trimmed || r.cccd === trimmed
+        );
+
+      if (matched) {
+        return {
+          user_id: matched.userId,
+          ho_ten: matched.fullName,
+          gioi_tinh: matched.gender,
+          cu_ly: matched.distance,
+          sdt: matched.phone,
+          cccd: matched.cccd,
+          so_bib: matched.bibNumber,
+          nam_sinh: matched.birthYear,
+        };
+      }
+    } catch (sheetErr) {
+      console.warn('Google Sheets fallback lookup error:', sheetErr);
+    }
+
     return null;
   },
 
