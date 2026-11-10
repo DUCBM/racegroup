@@ -5,6 +5,7 @@ import {
   validateMemberWithSheet,
   SheetRunner,
 } from '../../lib/googleSheets';
+import * as XLSX from 'xlsx';
 import { calculateQuota } from '../../utils/rules';
 import {
   ShieldAlert,
@@ -98,6 +99,16 @@ export function AdminDashboard({
           ...member,
           validation,
         };
+      });
+
+      // Sắp xếp lại: Chính thức lên đầu, dự bị xuống cuối cùng
+      analyzedMembers.sort((a, b) => {
+        if (a.role === 'official' && b.role !== 'official') return -1;
+        if (a.role !== 'official' && b.role === 'official') return 1;
+        if (a.gender !== b.gender) {
+          return a.gender === 'Nam' ? -1 : 1;
+        }
+        return new Date(a.joined_at).getTime() - new Date(b.joined_at).getTime();
       });
 
       const warningCount = analyzedMembers.filter(
@@ -209,13 +220,16 @@ export function AdminDashboard({
     };
   }, [teams, members, teamsWithMembers]);
 
-  // Export full table to CSV / Excel
-  const handleExportCsv = () => {
+  // Export full table to Excel (.xlsx) theo filter Trạng thái
+  const handleExportExcel = () => {
     const headers = [
       'STT',
       'Tên Đội',
       'Cự Ly Đội',
       'Tên Đội Trưởng',
+      'USER ID',
+      'Vai Trò',
+      'Họ Tên',
       'Giới Tính',
       'Cự Ly',
       'Số BIB',
@@ -223,17 +237,15 @@ export function AdminDashboard({
       'Năm Sinh',
       'SĐT VĐV',
       'PEN',
-      'Size Áo',
-      'Tỉnh Thành',
-      'Quốc Tịch',
       'Trạng Thái Đối Chiếu',
       'Ghi Chú Cảnh Báo',
     ];
 
-    const rows: string[][] = [];
+    const dataRows: (string | number)[][] = [headers];
     let count = 1;
 
-    teamsWithMembers.forEach((team) => {
+    // Xuất theo filter trạng thái (sử dụng filteredTeams)
+    filteredTeams.forEach((team) => {
       team.members.forEach((m) => {
         const sheet = m.validation.sheetRunner;
         const statusLabel =
@@ -245,40 +257,62 @@ export function AdminDashboard({
             ? 'LỆCH GIỚI TÍNH'
             : 'Chưa có trong dữ liệu BTC';
 
-        rows.push([
-          String(count++),
-          `"${team.name.replace(/"/g, '""')}"`,
+        dataRows.push([
+          count++,
+          team.name,
           team.category,
-          `"${team.captain_name.replace(/"/g, '""')}"`,
+          team.captain_name,
+          m.user_id || sheet?.userId || '',
+          m.role === 'official' ? 'Chính thức' : 'Dự bị',
+          sheet?.fullName || m.full_name || '',
           sheet?.gender || m.gender || '',
           sheet?.distance || team.category,
           sheet?.bibNumber || m.bib_number || '',
-          `'${sheet?.cccd || ''}`,
+          sheet?.cccd || '',
           sheet?.birthYear || '',
-          `'${sheet?.phone || ''}`,
+          sheet?.phone || '',
           sheet?.pen || '',
-          sheet?.shirtSize || '',
-          `"${(sheet?.city || '').replace(/"/g, '""')}"`,
-          `"${(sheet?.nationality || '').replace(/"/g, '""')}"`,
           statusLabel,
-          `"${m.validation.warnings.join('; ').replace(/"/g, '""')}"`,
+          m.validation.warnings.join('; '),
         ]);
       });
     });
 
-    // Generate CSV content with UTF-8 BOM
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute(
-      'download',
-      `VM_Danh_Sach_Dong_Doi_Admin_${new Date().toISOString().slice(0, 10)}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const ws = XLSX.utils.aoa_to_sheet(dataRows);
+
+    // Căn chỉnh độ rộng cột chuẩn Excel
+    ws['!cols'] = [
+      { wch: 6 },  // STT
+      { wch: 28 }, // Tên Đội
+      { wch: 12 }, // Cự Ly Đội
+      { wch: 24 }, // Tên Đội Trưởng
+      { wch: 14 }, // USER ID
+      { wch: 14 }, // Vai Trò
+      { wch: 26 }, // Họ Tên
+      { wch: 10 }, // Giới Tính
+      { wch: 10 }, // Cự Ly
+      { wch: 12 }, // Số BIB
+      { wch: 18 }, // CCCD
+      { wch: 14 }, // Năm Sinh
+      { wch: 14 }, // SĐT VĐV
+      { wch: 10 }, // PEN
+      { wch: 24 }, // Trạng Thái Đối Chiếu
+      { wch: 35 }, // Ghi Chú Cảnh Báo
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Danh Sách Đồng Đội');
+
+    // Tên file theo bộ lọc trạng thái
+    const statusText =
+      selectedStatus === 'completed'
+        ? '_Du_18_VDV'
+        : selectedStatus === 'recruiting'
+        ? '_Dang_Tuyen'
+        : '_Tat_Ca';
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `VM_Danh_Sach_Dong_Doi${statusText}_${dateStr}.xlsx`);
   };
 
   return (
@@ -318,11 +352,17 @@ export function AdminDashboard({
             </button>
 
             <button
-              onClick={handleExportCsv}
-              className="px-4 py-2 rounded-xl bg-[#9f224e] hover:bg-[#851b40] text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-[#9f224e]/20 transition cursor-pointer"
+              onClick={handleExportExcel}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition cursor-pointer"
+              title="Xuất file Excel theo bộ lọc trạng thái hiện tại"
             >
               <Download className="w-4 h-4" />
-              Xuất File Excel/CSV
+              <span>Xuất File Excel</span>
+              {selectedStatus !== 'all' && (
+                <span className="text-[10px] bg-emerald-800/80 px-1.5 py-0.5 rounded text-white font-normal">
+                  {selectedStatus === 'completed' ? 'Đủ 18 VĐV' : 'Đang tuyển'}
+                </span>
+              )}
             </button>
 
             <button
