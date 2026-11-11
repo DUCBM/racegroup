@@ -25,7 +25,12 @@ import {
   Mail,
   KeyRound,
   IdCard,
+  LogOut,
+  ShieldCheck,
+  Loader2,
 } from 'lucide-react';
+import { getSupabaseClient } from '../../lib/supabase';
+import { AdminLogin } from './AdminLogin';
 
 interface AdminDashboardProps {
   teams: Team[];
@@ -40,6 +45,10 @@ export function AdminDashboard({
   onBackToHome,
   onRefreshData,
 }: AdminDashboardProps) {
+  // Supabase Auth session state
+  const [adminUser, setAdminUser] = useState<any | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
+
   // Google Sheets state
   const [sheetRunners, setSheetRunners] = useState<Map<string, SheetRunner>>(new Map());
   const [loadingSheet, setLoadingSheet] = useState(true);
@@ -83,8 +92,38 @@ export function AdminDashboard({
   };
 
   useEffect(() => {
+    // Check Supabase Auth session
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setAuthChecking(false);
+      return;
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAdminUser(session?.user || null);
+      setAuthChecking(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAdminUser(session?.user || null);
+    });
+
     loadSheetData();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const handleSignOut = async () => {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    setAdminUser(null);
+  };
 
   // Compute team members lookup & analysis
   const teamsWithMembers = useMemo(() => {
@@ -315,6 +354,24 @@ export function AdminDashboard({
     XLSX.writeFile(wb, `VM_Danh_Sach_Dong_Doi${statusText}_${dateStr}.xlsx`);
   };
 
+  // 1. Loading check auth
+  if (authChecking) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 text-[#9f224e] flex items-center justify-center mb-4 shadow-2xl">
+          <Loader2 className="w-7 h-7 animate-spin" />
+        </div>
+        <p className="text-base font-bold text-slate-800">Đang xác thực quyền Quản trị viên...</p>
+        <p className="text-xs text-slate-500 mt-1">Hệ thống đang kiểm tra phiên làm việc bảo mật Supabase Auth</p>
+      </div>
+    );
+  }
+
+  // 2. Not logged in -> Show AdminLogin form
+  if (!adminUser) {
+    return <AdminLogin onSuccess={(user) => setAdminUser(user)} onBackToHome={onBackToHome} />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Top Admin Header */}
@@ -363,6 +420,22 @@ export function AdminDashboard({
                   {selectedStatus === 'completed' ? 'Đủ 18 VĐV' : 'Đang tuyển'}
                 </span>
               )}
+            </button>
+
+            <div className="hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-xs">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span className="truncate max-w-[180px] font-semibold text-slate-200" title={adminUser.email || 'Admin'}>
+                {adminUser.email || 'Admin'}
+              </span>
+            </div>
+
+            <button
+              onClick={handleSignOut}
+              className="px-3.5 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-rose-100 text-xs font-semibold flex items-center gap-1.5 border border-rose-800/60 transition cursor-pointer"
+              title="Đăng xuất khỏi tài khoản Quản trị"
+            >
+              <LogOut className="w-4 h-4 text-rose-400" />
+              <span>Đăng xuất</span>
             </button>
 
             <button

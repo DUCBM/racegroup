@@ -319,13 +319,11 @@ export const api = {
 
     const captainUserId = (teamInput.user_id || captainMemberInput.user_id || currentUser.id || generateUUID()).trim();
 
-    // 1 Vận động viên chỉ được tạo hoặc tham gia 1 đội duy nhất
+    // 1 Vận động viên chỉ được tạo hoặc tham gia 1 đội duy nhất (định danh theo USER ID)
     const allExistingMembers = await this.getAllMembers();
-    const existingMembership = allExistingMembers.find(
-      (m) =>
-        (m.user_id && String(m.user_id).trim() === captainUserId) ||
-        m.full_name.trim().toLowerCase() === teamInput.captain_name.trim().toLowerCase()
-    );
+    const existingMembership = captainUserId
+      ? allExistingMembers.find((m) => m.user_id && String(m.user_id).trim() === captainUserId)
+      : null;
     if (existingMembership) {
       const existingTeam = (await this.getTeams()).find((t) => t.id === existingMembership.team_id);
       const teamName = existingTeam ? existingTeam.name : 'đội khác';
@@ -467,13 +465,12 @@ export const api = {
       throw new Error(quotaCheck.error);
     }
 
-    // 1 Vận động viên chỉ được tham gia 1 nhóm duy nhất (kiểm tra toàn hệ thống)
+    // 1 Vận động viên chỉ được tham gia 1 nhóm duy nhất (kiểm tra toàn hệ thống theo USER ID)
     const allMembers = await this.getAllMembers();
-    const existingMembership = allMembers.find(
-      (m) =>
-        (m.user_id && String(m.user_id).trim() === String(userId).trim()) ||
-        m.full_name.trim().toLowerCase() === fullName.trim().toLowerCase()
-    );
+    const targetUserId = String(userId || '').trim();
+    const existingMembership = targetUserId
+      ? allMembers.find((m) => m.user_id && String(m.user_id).trim() === targetUserId)
+      : null;
     if (existingMembership) {
       const allTeams = await this.getTeams();
       const existingTeam = allTeams.find((t) => t.id === existingMembership.team_id);

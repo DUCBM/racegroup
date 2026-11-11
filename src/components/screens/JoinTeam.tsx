@@ -87,12 +87,11 @@ export const JoinTeam: React.FC<JoinTeamProps> = ({
     try {
       const result = await api.lookupRegistration(code);
       if (result) {
-        // Kiểm tra VĐV đã tham gia đội nào chưa (mỗi VĐV chỉ được tham gia 1 đội duy nhất)
-        const existingMembership = members.find(
-          (m) =>
-            (m.user_id && String(m.user_id).trim() === String(result.user_id).trim()) ||
-            m.full_name.trim().toLowerCase() === result.ho_ten.trim().toLowerCase()
-        );
+        // Kiểm tra VĐV đã tham gia đội nào chưa (mỗi VĐV chỉ được tham gia 1 đội duy nhất - định danh theo USER ID)
+        const targetUserId = String(result.user_id || '').trim();
+        const existingMembership = targetUserId
+          ? members.find((m) => m.user_id && String(m.user_id).trim() === targetUserId)
+          : null;
         if (existingMembership) {
           const foundTeam = teams.find((t) => t.id === existingMembership.team_id);
           const tName = foundTeam ? foundTeam.name : 'đội khác';
@@ -273,12 +272,11 @@ export const JoinTeam: React.FC<JoinTeamProps> = ({
     }
 
     const regCodeVal = registrationCode.trim();
-    // Kiểm tra VĐV đã tham gia đội nào chưa (trên toàn bộ hệ thống)
-    const alreadyJoinedAny = members.find(
-      (m) =>
-        (m.user_id && String(m.user_id).trim() === regCodeVal) ||
-        (m.full_name.trim().toLowerCase() === athleteInfo.ho_ten.trim().toLowerCase())
-    );
+    // Kiểm tra VĐV đã tham gia đội nào chưa (trên toàn bộ hệ thống - định danh duy nhất theo USER ID)
+    const targetUserId = String(athleteInfo.user_id || regCodeVal).trim();
+    const alreadyJoinedAny = targetUserId
+      ? members.find((m) => m.user_id && String(m.user_id).trim() === targetUserId)
+      : null;
 
     if (alreadyJoinedAny) {
       const foundTeam = teams.find((t) => t.id === alreadyJoinedAny.team_id);

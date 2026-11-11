@@ -77,12 +77,11 @@ export const CreateTeam: React.FC<CreateTeamProps> = ({
     try {
       const result = await api.lookupRegistration(code);
       if (result) {
-        // Kiểm tra VĐV đã tạo hoặc tham gia đội nào chưa (mỗi VĐV chỉ được join 1 đội duy nhất)
-        const existingMembership = members.find(
-          (m) =>
-            (m.user_id && String(m.user_id).trim() === String(result.user_id).trim()) ||
-            m.full_name.trim().toLowerCase() === result.ho_ten.trim().toLowerCase()
-        );
+        // Kiểm tra VĐV đã tạo hoặc tham gia đội nào chưa (mỗi VĐV chỉ được join 1 đội duy nhất - định danh theo USER ID)
+        const targetUserId = String(result.user_id || '').trim();
+        const existingMembership = targetUserId
+          ? members.find((m) => m.user_id && String(m.user_id).trim() === targetUserId)
+          : null;
         if (existingMembership) {
           const foundTeam = teams.find((t) => t.id === existingMembership.team_id);
           const tName = foundTeam ? foundTeam.name : 'đội khác';
