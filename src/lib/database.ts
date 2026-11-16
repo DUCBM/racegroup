@@ -101,9 +101,17 @@ export const api = {
   /**
    * Tra cứu thông tin VĐV từ bảng marathon_registrations trên Supabase
    */
-  async lookupRegistration(regCodeOrUserId: string): Promise<MarathonRegistration | null> {
+  async lookupRegistration(
+    regCodeOrUserId: string,
+    options?: { userIdOnly?: boolean }
+  ): Promise<MarathonRegistration | null> {
     const trimmed = regCodeOrUserId.trim();
     if (!trimmed) return null;
+
+    const userIdOnly = options?.userIdOnly ?? false;
+    if (userIdOnly && !/^\d{6}$/.test(trimmed)) {
+      return null;
+    }
 
     const supabase = getSupabaseClient();
     if (supabase) {
@@ -111,7 +119,9 @@ export const api = {
         const numId = parseInt(trimmed, 10);
 
         let query = supabase.from('marathon_registrations').select('*');
-        if (!isNaN(numId)) {
+        if (userIdOnly) {
+          query = query.eq('user_id', numId);
+        } else if (!isNaN(numId)) {
           query = query.or(`user_id.eq.${numId},id.eq.${numId},sdt.eq.${trimmed},cccd.eq.${trimmed}`);
         } else {
           query = query.or(`sdt.eq.${trimmed},cccd.eq.${trimmed}`);
@@ -154,11 +164,12 @@ export const api = {
       const { fetchGoogleSheetRunners } = await import('./googleSheets');
       const { runners } = await fetchGoogleSheetRunners();
       const directMatch = runners.get(trimmed);
-      const matched =
-        directMatch ||
-        Array.from(runners.values()).find(
-          (r) => r.phone === trimmed || r.cccd === trimmed
-        );
+      const matched = userIdOnly
+        ? directMatch
+        : directMatch ||
+          Array.from(runners.values()).find(
+            (r) => r.phone === trimmed || r.cccd === trimmed
+          );
 
       if (matched) {
         return {

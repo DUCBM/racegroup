@@ -66,7 +66,7 @@ export const JoinTeam: React.FC<JoinTeamProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Tra cứu mã VĐV từ bảng marathon_registrations
+  // Tra cứu mã VĐV (chỉ tra cứu đúng user_id gồm 6 chữ số) từ bảng marathon_registrations
   const handleLookupRegCode = async (codeToLookup: string) => {
     const code = codeToLookup.trim();
     if (!code) {
@@ -78,6 +78,17 @@ export const JoinTeam: React.FC<JoinTeamProps> = ({
       return;
     }
 
+    if (!/^\d{6}$/.test(code)) {
+      setAthleteInfo(null);
+      setRegLookupSuccess(null);
+      setDistanceDisallowedError(null);
+      setAlreadyInTeamError(null);
+      setRegLookupError(
+        'Mã đăng ký VĐV (user_id) phải gồm đúng 6 chữ số (không hỗ trợ tra cứu theo số điện thoại).'
+      );
+      return;
+    }
+
     setRegLookupLoading(true);
     setRegLookupError(null);
     setRegLookupSuccess(null);
@@ -85,7 +96,7 @@ export const JoinTeam: React.FC<JoinTeamProps> = ({
     setAlreadyInTeamError(null);
 
     try {
-      const result = await api.lookupRegistration(code);
+      const result = await api.lookupRegistration(code, { userIdOnly: true });
       if (result) {
         // Kiểm tra VĐV đã tham gia đội nào chưa (mỗi VĐV chỉ được tham gia 1 đội duy nhất - định danh theo USER ID)
         const targetUserId = String(result.user_id || '').trim();
@@ -240,12 +251,17 @@ export const JoinTeam: React.FC<JoinTeamProps> = ({
     }
 
     if (!registrationCode.trim()) {
-      setErrorMsg('Vui lòng nhập Mã đăng ký VĐV để tra cứu thông tin.');
+      setErrorMsg('Vui lòng nhập Mã đăng ký VĐV (user_id) gồm 6 chữ số để tra cứu thông tin.');
       return;
     }
 
-    if (!athleteInfo) {
-      setErrorMsg('Vui lòng nhập đúng Mã đăng ký VĐV hợp lệ trước khi gửi.');
+    if (!/^\d{6}$/.test(registrationCode.trim())) {
+      setErrorMsg('Mã đăng ký VĐV (user_id) phải gồm đúng 6 chữ số.');
+      return;
+    }
+
+    if (!athleteInfo || String(athleteInfo.user_id || '').trim() !== registrationCode.trim()) {
+      setErrorMsg('Vui lòng tra cứu đúng Mã đăng ký VĐV (user_id) hợp lệ trước khi gửi.');
       return;
     }
 
@@ -543,10 +559,20 @@ export const JoinTeam: React.FC<JoinTeamProps> = ({
                     <input
                       ref={inputRef}
                       type="text"
+                      inputMode="numeric"
                       required
-                      placeholder="Nhập mã đăng ký tại email đăng ký thành công"
+                      placeholder="Nhập mã user_id gồm 6 chữ số tại email đăng ký thành công"
                       value={registrationCode}
-                      onChange={(e) => setRegistrationCode(e.target.value)}
+                      onChange={(e) => {
+                        setRegistrationCode(e.target.value);
+                        if (athleteInfo || regLookupSuccess || regLookupError || distanceDisallowedError || alreadyInTeamError) {
+                          setAthleteInfo(null);
+                          setRegLookupSuccess(null);
+                          setRegLookupError(null);
+                          setDistanceDisallowedError(null);
+                          setAlreadyInTeamError(null);
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -580,7 +606,7 @@ export const JoinTeam: React.FC<JoinTeamProps> = ({
 
                 {/* Ghi chú đỏ */}
                 <p className="text-xs text-rose-600 font-semibold mt-1.5 flex items-center gap-1">
-                  * Mã đăng ký bạn tìm tại email đăng ký chạy thành công.
+                  * Chỉ tra cứu theo mã user_id gồm 6 chữ số tại email đăng ký chạy thành công (không tra cứu bằng SĐT).
                 </p>
               </div>
 
