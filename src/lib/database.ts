@@ -606,27 +606,41 @@ export const api = {
   },
 
   /**
-   * Xóa toàn bộ đội (Xóa toàn bộ thành viên trong team_members và xóa đội trong teams)
+   * Xóa toàn bộ đội (Xóa đội trong teams - tự động xử lý cascade hoặc xóa team_members trước nếu cần)
    */
   async deleteTeam(teamId: string): Promise<boolean> {
     const supabase = getSupabaseClient();
     if (supabase) {
-      // Bước 1: Xóa tất cả thành viên thuộc đội trong bảng team_members
-      const { error: membersError } = await supabase
-        .from('team_members')
-        .delete()
-        .eq('team_id', teamId);
-
-      if (membersError) {
-        throw new Error(`Lỗi khi xóa danh sách thành viên của đội: ${membersError.message}`);
-      }
-
-      // Bước 2: Xóa đội trong bảng teams
-      const { data: deletedTeams, error: teamError } = await supabase
+      // Thử xóa bảng teams trước để tránh trường hợp bị chặn RLS trên teams mà đã lỡ xóa hết team_members
+      let { data: deletedTeams, error: teamError } = await supabase
         .from('teams')
         .delete()
         .eq('id', teamId)
         .select('id');
+
+      // Nếu bảng team_members không bật ON DELETE CASCADE và báo lỗi Foreign Key (23503), xóa team_members trước rồi xóa teams
+      if (
+        teamError &&
+        (teamError.code === '23503' || /foreign key/i.test(teamError.message || ''))
+      ) {
+        const { error: membersError } = await supabase
+          .from('team_members')
+          .delete()
+          .eq('team_id', teamId);
+
+        if (membersError) {
+          throw new Error(`Lỗi khi xóa danh sách thành viên của đội: ${membersError.message}`);
+        }
+
+        const retry = await supabase
+          .from('teams')
+          .delete()
+          .eq('id', teamId)
+          .select('id');
+
+        deletedTeams = retry.data;
+        teamError = retry.error;
+      }
 
       if (teamError) {
         throw new Error(`Không thể xóa đội trên Supabase: ${teamError.message}`);
@@ -640,10 +654,15 @@ export const api = {
           .maybeSingle();
         if (stillExists) {
           throw new Error(
-            'Không có quyền xóa bản ghi trong bảng teams trên Supabase (kiểm tra RLS Policy DELETE).'
+            'Supabase đang chặn quyền DELETE trên bảng "teams" (thiếu RLS Policy DELETE cho tài khoản Admin đã đăng nhập). Vui lòng chạy lệnh cấp quyền DELETE trong SQL Editor của Supabase.'
           );
         }
       }
+
+      // Đảm bảo dọn sạch mọi thành viên còn sót nếu DB chưa bật cascade
+      try {
+        await supabase.from('team_members').delete().eq('team_id', teamId);
+      } catch {}
 
       // Đồng bộ localStorage nếu có
       try {

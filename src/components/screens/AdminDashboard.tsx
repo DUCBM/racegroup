@@ -92,6 +92,7 @@ export function AdminDashboard({
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showSecondConfirm, setShowSecondConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -151,6 +152,7 @@ export function AdminDashboard({
   const handleConfirmDeleteTeam = async () => {
     if (!teamToDelete) return;
     setDeleteLoading(true);
+    setDeleteError(null);
     setActionFeedback(null);
     try {
       await api.deleteTeam(teamToDelete.id);
@@ -162,10 +164,12 @@ export function AdminDashboard({
       setShowSecondConfirm(false);
       setTeamToDelete(null);
     } catch (err: any) {
+      const msg = err?.message || 'Không thể xóa nhóm. Vui lòng thử lại.';
       setShowSecondConfirm(false);
+      setDeleteError(msg);
       setActionFeedback({
         type: 'error',
-        message: err?.message || 'Không thể xóa nhóm. Vui lòng thử lại.',
+        message: msg,
       });
     } finally {
       setDeleteLoading(false);
@@ -175,6 +179,7 @@ export function AdminDashboard({
   const handleConfirmDeleteMember = async () => {
     if (!memberToDelete) return;
     setDeleteLoading(true);
+    setDeleteError(null);
     setActionFeedback(null);
     try {
       await api.kickMember(memberToDelete.teamId, memberToDelete.member.id);
@@ -186,10 +191,12 @@ export function AdminDashboard({
       setShowSecondConfirm(false);
       setMemberToDelete(null);
     } catch (err: any) {
+      const msg = err?.message || 'Không thể xóa thành viên. Vui lòng thử lại.';
       setShowSecondConfirm(false);
+      setDeleteError(msg);
       setActionFeedback({
         type: 'error',
-        message: err?.message || 'Không thể xóa thành viên. Vui lòng thử lại.',
+        message: msg,
       });
     } finally {
       setDeleteLoading(false);
@@ -859,6 +866,7 @@ export function AdminDashboard({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        setDeleteError(null);
                         setShowSecondConfirm(false);
                         setTeamToDelete({
                           id: team.id,
@@ -1077,6 +1085,7 @@ export function AdminDashboard({
                                     <button
                                       type="button"
                                       onClick={() => {
+                                        setDeleteError(null);
                                         setShowSecondConfirm(false);
                                         setMemberToDelete({
                                           teamId: team.id,
@@ -1322,6 +1331,13 @@ export function AdminDashboard({
                 <strong className="text-rose-700">{teamToDelete.category}</strong>, hiện có{' '}
                 <strong>{teamToDelete.memberCount} thành viên</strong>)?
               </p>
+
+              {deleteError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 flex items-start gap-2 font-medium">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{deleteError}</span>
+                </div>
+              )}
             </div>
 
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
@@ -1395,6 +1411,13 @@ export function AdminDashboard({
                   <span>
                     <strong>Lưu ý:</strong> Đây đang là tài khoản <strong>Đội trưởng</strong> của nhóm. Nếu muốn giải tán cả nhóm, hãy dùng nút <strong>Xóa nhóm</strong>.
                   </span>
+                </div>
+              )}
+
+              {deleteError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 flex items-start gap-2 font-medium">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{deleteError}</span>
                 </div>
               )}
             </div>
