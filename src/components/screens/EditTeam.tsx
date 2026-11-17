@@ -22,6 +22,9 @@ import {
   UserPlus,
   RefreshCw,
   Edit3,
+  Trash2,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 
 interface EditTeamProps {
@@ -65,6 +68,13 @@ export const EditTeam: React.FC<EditTeamProps> = ({
   // Modal xác nhận loại thành viên
   const [memberToKick, setMemberToKick] = useState<TeamMember | null>(null);
 
+  // Modal xác nhận xóa nhóm (2 bước) dành cho Đội trưởng
+  const [showDeleteTeamModal, setShowDeleteTeamModal] = useState(false);
+  const [showDeleteSecondConfirm, setShowDeleteSecondConfirm] = useState(false);
+  const [deleteTeamLoading, setDeleteTeamLoading] = useState(false);
+  const [deleteTeamError, setDeleteTeamError] = useState<string | null>(null);
+  const [deletedTeamName, setDeletedTeamName] = useState<string | null>(null);
+
   const currentTeam = teams.find((t) => t.id === selectedTeamId);
   const currentTeamMembers = members.filter((m) => m.team_id === selectedTeamId);
   const quota = calculateQuota(currentTeamMembers);
@@ -76,6 +86,9 @@ export const EditTeam: React.FC<EditTeamProps> = ({
     setAuthError(null);
     setErrorMsg(null);
     setSuccessMsg(null);
+    setShowDeleteTeamModal(false);
+    setShowDeleteSecondConfirm(false);
+    setDeleteTeamError(null);
   }, [selectedTeamId]);
 
   // Xử lý xác thực Đội trưởng khi truy cập trang chỉnh sửa
@@ -229,6 +242,31 @@ export const EditTeam: React.FC<EditTeamProps> = ({
     }
   };
 
+  // Đội trưởng tự xóa nhóm (sau khi xác nhận 2 bước)
+  const handleConfirmDeleteTeam = async () => {
+    if (!currentTeam) return;
+    setDeleteTeamLoading(true);
+    setDeleteTeamError(null);
+    setErrorMsg(null);
+    try {
+      const removedName = currentTeam.name;
+      await api.deleteTeamByCaptain(
+        currentTeam.id,
+        passcode.trim() || currentTeam.passcode
+      );
+      setShowDeleteSecondConfirm(false);
+      setShowDeleteTeamModal(false);
+      setIsAuthenticated(false);
+      setDeletedTeamName(removedName);
+      if (onRefreshData) await onRefreshData();
+    } catch (err: any) {
+      setShowDeleteSecondConfirm(false);
+      setDeleteTeamError(err?.message || 'Không thể xóa nhóm. Vui lòng thử lại.');
+    } finally {
+      setDeleteTeamLoading(false);
+    }
+  };
+
   // Lọc thành viên theo tab
   const filteredMembers = currentTeamMembers.filter((m) => {
     if (activeTab === 'official') return m.role === 'official';
@@ -270,8 +308,31 @@ export const EditTeam: React.FC<EditTeamProps> = ({
         </div>
       )}
 
-      {/* MÀN HÌNH 1: YÊU CẦU NHẬP MÃ ĐĂNG KÝ VÀ PASS NHÓM (AUTHENTICATION GATE) */}
-      {!isAuthenticated ? (
+      {/* TRẠNG THÁI ĐÃ XÓA NHÓM THÀNH CÔNG */}
+      {deletedTeamName ? (
+        <div className="bg-white rounded-2xl border border-emerald-200 p-8 sm:p-10 text-center space-y-4 shadow-sm animate-in fade-in">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-8 h-8" />
+          </div>
+          <div className="space-y-1.5">
+            <h2 className="text-xl font-black text-slate-900">
+              Đã xóa nhóm "{deletedTeamName}" thành công
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto">
+              Nhóm đua và toàn bộ danh sách thành viên trong nhóm đã được gỡ khỏi hệ thống. Tất cả VĐV trong nhóm hiện có thể đăng ký tham gia đội khác.
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-6 py-2.5 rounded-xl bg-[#9f224e] hover:bg-[#851c41] text-white text-xs font-bold uppercase tracking-wider shadow-sm transition cursor-pointer"
+            >
+              Về danh sách đội
+            </button>
+          </div>
+        </div>
+      ) : !isAuthenticated ? (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           {/* Header xác thực */}
           <div className="p-6 sm:p-8 border-b border-slate-100 bg-linear-to-r from-slate-50 to-amber-50/40">
@@ -477,23 +538,40 @@ export const EditTeam: React.FC<EditTeamProps> = ({
                   {/* Toggle Trạng thái Khóa sổ / Mở gom quân */}
                   {currentTeam.status === 'recruiting' ? (
                     <button
+                      type="button"
                       onClick={() => handleUpdateStatus('locked')}
                       disabled={statusLoading}
-                      className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 transition-colors border border-slate-300"
+                      className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 transition-colors border border-slate-300 cursor-pointer"
                     >
                       <Lock className="w-3.5 h-3.5 text-slate-600" />
                       <span>Khóa sổ</span>
                     </button>
                   ) : (
                     <button
+                      type="button"
                       onClick={() => handleUpdateStatus('recruiting')}
                       disabled={statusLoading}
-                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 transition-colors"
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <Unlock className="w-3.5 h-3.5" />
                       <span>Mở gom quân</span>
                     </button>
                   )}
+
+                  {/* Nút Xóa nhóm cho Đội trưởng */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteTeamError(null);
+                      setShowDeleteSecondConfirm(false);
+                      setShowDeleteTeamModal(true);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 transition-colors border border-rose-200 hover:border-rose-600 cursor-pointer"
+                    title="Xóa vĩnh viễn nhóm đua này"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Xóa nhóm</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -845,6 +923,138 @@ export const EditTeam: React.FC<EditTeamProps> = ({
                   <UserMinus className="w-3.5 h-3.5" />
                 )}
                 <span>Xác nhận loại</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL XÁC NHẬN XÓA NHÓM DÀNH CHO ĐỘI TRƯỞNG (BƯỚC 1/2) */}
+      {showDeleteTeamModal && currentTeam && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full shadow-2xl overflow-hidden">
+            <div className="p-5 bg-rose-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Trash2 className="w-5 h-5" />
+                <h3 className="text-base font-black">Xác Nhận Xóa Nhóm Đua</h3>
+              </div>
+              <button
+                type="button"
+                disabled={deleteTeamLoading}
+                onClick={() => {
+                  setShowDeleteSecondConfirm(false);
+                  setShowDeleteTeamModal(false);
+                }}
+                className="p-1 rounded-lg hover:bg-white/20 transition cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3 text-xs text-slate-700 leading-relaxed">
+              <p>
+                Bạn có chắc chắn muốn xóa vĩnh viễn nhóm đua{' '}
+                <strong className="text-slate-900">{currentTeam.name}</strong> (Cự ly{' '}
+                <strong className="text-rose-700">{currentTeam.category}</strong>, hiện có{' '}
+                <strong>{quota.total} thành viên</strong>)?
+              </p>
+
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  Sau khi xóa, toàn bộ thành viên trong nhóm sẽ được giải phóng để có thể gia nhập nhóm đua khác.
+                </span>
+              </div>
+
+              {deleteTeamError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 flex items-start gap-2 font-medium">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{deleteTeamError}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={deleteTeamLoading}
+                onClick={() => {
+                  setShowDeleteSecondConfirm(false);
+                  setShowDeleteTeamModal(false);
+                }}
+                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer transition disabled:opacity-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={deleteTeamLoading}
+                onClick={() => setShowDeleteSecondConfirm(true)}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Xóa vĩnh viễn nhóm</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP XÁC NHẬN LẦN CUỐI (BƯỚC 2/2 - CHỐNG BẤM NHẦM) */}
+      {showDeleteSecondConfirm && showDeleteTeamModal && currentTeam && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl border-2 border-rose-500 overflow-hidden">
+            <div className="p-4 bg-rose-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
+                <h3 className="text-sm font-black uppercase tracking-wide">
+                  Xác nhận lại lần cuối
+                </h3>
+              </div>
+              <button
+                type="button"
+                disabled={deleteTeamLoading}
+                onClick={() => setShowDeleteSecondConfirm(false)}
+                className="p-1 rounded-lg hover:bg-white/20 transition cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3 text-xs text-slate-700 leading-relaxed">
+              <p>
+                Dữ liệu sau khi xóa <strong>KHÔNG THỂ KHÔI PHỤC</strong>. Đội trưởng có chắc chắn 100% muốn xóa vĩnh viễn nhóm{' '}
+                <strong className="text-rose-700">{currentTeam.name}</strong> (cùng{' '}
+                <strong>{quota.total} thành viên</strong>)?
+              </p>
+            </div>
+
+            <div className="p-4 bg-rose-50/70 border-t border-rose-200 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={deleteTeamLoading}
+                onClick={() => setShowDeleteSecondConfirm(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer transition disabled:opacity-50"
+              >
+                Quay lại
+              </button>
+              <button
+                type="button"
+                disabled={deleteTeamLoading}
+                onClick={handleConfirmDeleteTeam}
+                className="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-rose-700/30 cursor-pointer transition disabled:opacity-50"
+              >
+                {deleteTeamLoading ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang xóa...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Đồng ý xóa ngay</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

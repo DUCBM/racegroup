@@ -681,6 +681,83 @@ export const api = {
   },
 
   /**
+   * Đội trưởng tự xóa nhóm (Xác minh passcode qua RPC bảo mật hoặc delete trực tiếp nếu RLS cho phép)
+   */
+  async deleteTeamByCaptain(teamId: string, passcode: string): Promise<boolean> {
+    const cleanPass = (passcode || '').trim().toUpperCase();
+    if (!cleanPass) {
+      throw new Error('Vui lòng cung cấp mật khẩu nhóm (Passcode) hợp lệ để xóa nhóm.');
+    }
+
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      // 1. Kiểm tra passcode khớp với dữ liệu team hiện tại
+      const { data: teamRow, error: fetchErr } = await supabase
+        .from('teams')
+        .select('id, passcode')
+        .eq('id', teamId)
+        .maybeSingle();
+
+      if (fetchErr) {
+        throw new Error(`Không thể xác minh thông tin nhóm: ${fetchErr.message}`);
+      }
+      if (!teamRow) {
+        throw new Error('Nhóm không tồn tại hoặc đã bị xóa trước đó.');
+      }
+      if (String(teamRow.passcode || '').trim().toUpperCase() !== cleanPass) {
+        throw new Error('Mật khẩu nhóm (Passcode) không chính xác.');
+      }
+
+      // 2. Thử gọi RPC SECURITY DEFINER `captain_delete_team` nếu đã thiết lập trên Supabase
+      const { data: rpcData, error: rpcError } = await supabase.rpc('captain_delete_team', {
+        p_team_id: teamId,
+        p_passcode: cleanPass,
+      });
+
+      if (!rpcError && rpcData !== false) {
+        try {
+          saveLocalMembers(loadLocalMembers().filter((m) => m.team_id !== teamId));
+          saveLocalTeams(loadLocalTeams().filter((t) => t.id !== teamId));
+        } catch {}
+        return true;
+      }
+
+      // Nếu hàm RPC chưa được tạo trên Supabase, fallback sang delete trực tiếp
+      const rpcMissing =
+        rpcError &&
+        (rpcError.code === 'PGRST202' ||
+          rpcError.code === '42883' ||
+          /could not find the function|does not exist/i.test(rpcError.message || ''));
+
+      if (rpcError && !rpcMissing) {
+        throw new Error(rpcError.message || 'Không thể xóa nhóm qua hệ thống.');
+      }
+
+      try {
+        return await this.deleteTeam(teamId);
+      } catch (delErr: any) {
+        const msg = delErr?.message || '';
+        if (/RLS|DELETE|quyền/i.test(msg)) {
+          throw new Error(
+            'Supabase đang chặn quyền xóa nhóm từ trang Đội trưởng (do RLS chỉ mở cho Admin). Vui lòng chạy hàm RPC captain_delete_team trong SQL Editor của Supabase.'
+          );
+        }
+        throw delErr;
+      }
+    }
+
+    const localTeams = loadLocalTeams();
+    const target = localTeams.find((t) => t.id === teamId);
+    if (!target) throw new Error('Không tìm thấy nhóm.');
+    if (String(target.passcode || '').trim().toUpperCase() !== cleanPass) {
+      throw new Error('Mật khẩu nhóm (Passcode) không chính xác.');
+    }
+    saveLocalMembers(loadLocalMembers().filter((m) => m.team_id !== teamId));
+    saveLocalTeams(localTeams.filter((t) => t.id !== teamId));
+    return true;
+  },
+
+  /**
    * Đổi vai trò chính thức <-> dự bị
    */
   async toggleMemberRole(teamId: string, memberId: string): Promise<TeamMember> {
