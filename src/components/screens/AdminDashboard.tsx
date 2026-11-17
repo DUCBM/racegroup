@@ -91,6 +91,7 @@ export function AdminDashboard({
     member: TeamMember;
   } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showSecondConfirm, setShowSecondConfirm] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{
     type: 'success' | 'error';
     message: string;
@@ -158,8 +159,10 @@ export function AdminDashboard({
         type: 'success',
         message: `Đã xóa vĩnh viễn nhóm "${teamToDelete.name}" (${teamToDelete.category}) và ${teamToDelete.memberCount} thành viên khỏi Supabase.`,
       });
+      setShowSecondConfirm(false);
       setTeamToDelete(null);
     } catch (err: any) {
+      setShowSecondConfirm(false);
       setActionFeedback({
         type: 'error',
         message: err?.message || 'Không thể xóa nhóm. Vui lòng thử lại.',
@@ -180,8 +183,10 @@ export function AdminDashboard({
         type: 'success',
         message: `Đã xóa VĐV "${memberToDelete.member.full_name}" (ID: ${memberToDelete.member.user_id || '---'}) khỏi nhóm "${memberToDelete.teamName}".`,
       });
+      setShowSecondConfirm(false);
       setMemberToDelete(null);
     } catch (err: any) {
+      setShowSecondConfirm(false);
       setActionFeedback({
         type: 'error',
         message: err?.message || 'Không thể xóa thành viên. Vui lòng thử lại.',
@@ -854,6 +859,7 @@ export function AdminDashboard({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
+                        setShowSecondConfirm(false);
                         setTeamToDelete({
                           id: team.id,
                           name: team.name,
@@ -1070,14 +1076,15 @@ export function AdminDashboard({
                                   >
                                     <button
                                       type="button"
-                                      onClick={() =>
+                                      onClick={() => {
+                                        setShowSecondConfirm(false);
                                         setMemberToDelete({
                                           teamId: team.id,
                                           teamName: team.name,
                                           teamCaptainId: team.user_id,
                                           member,
-                                        })
-                                      }
+                                        });
+                                      }}
                                       className="p-1.5 rounded-lg text-rose-500 hover:text-white hover:bg-rose-600 border border-transparent hover:border-rose-600 transition cursor-pointer inline-flex items-center gap-1 text-[11px] font-semibold"
                                       title={`Xóa VĐV "${member.full_name}" khỏi nhóm`}
                                     >
@@ -1312,33 +1319,19 @@ export function AdminDashboard({
               <p>
                 Bạn có chắc chắn muốn xóa vĩnh viễn nhóm{' '}
                 <strong className="text-slate-900">{teamToDelete.name}</strong> (Cự ly{' '}
-                <strong className="text-rose-700">{teamToDelete.category}</strong>)?
+                <strong className="text-rose-700">{teamToDelete.category}</strong>, hiện có{' '}
+                <strong>{teamToDelete.memberCount} thành viên</strong>)?
               </p>
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 space-y-1">
-                <div className="font-bold flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                  Tác động trên Database Supabase:
-                </div>
-                <ul className="list-disc list-inside space-y-0.5 pl-1">
-                  <li>
-                    Xóa toàn bộ <strong>{teamToDelete.memberCount} thành viên</strong> của đội trong bảng{' '}
-                    <code className="bg-white px-1 rounded">team_members</code>.
-                  </li>
-                  <li>
-                    Xóa bản ghi đội trong bảng <code className="bg-white px-1 rounded">teams</code>.
-                  </li>
-                  <li>
-                    Hồ sơ gốc trong <code className="bg-white px-1 rounded">marathon_registrations</code> được giữ nguyên để các VĐV có thể đăng ký đội khác.
-                  </li>
-                </ul>
-              </div>
             </div>
 
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 disabled={deleteLoading}
-                onClick={() => setTeamToDelete(null)}
+                onClick={() => {
+                  setShowSecondConfirm(false);
+                  setTeamToDelete(null);
+                }}
                 className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer transition disabled:opacity-50"
               >
                 Hủy bỏ
@@ -1346,27 +1339,18 @@ export function AdminDashboard({
               <button
                 type="button"
                 disabled={deleteLoading}
-                onClick={handleConfirmDeleteTeam}
+                onClick={() => setShowSecondConfirm(true)}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
               >
-                {deleteLoading ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Đang xóa...</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Xóa vĩnh viễn nhóm</span>
-                  </>
-                )}
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Xóa vĩnh viễn nhóm</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Confirm Delete Member Modal */}
+      {/* Confirm Delete Member Modal (Bước 1/2) */}
       {memberToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
@@ -1377,7 +1361,12 @@ export function AdminDashboard({
               </div>
               <button
                 type="button"
-                onClick={() => !deleteLoading && setMemberToDelete(null)}
+                onClick={() => {
+                  if (!deleteLoading) {
+                    setShowSecondConfirm(false);
+                    setMemberToDelete(null);
+                  }
+                }}
                 className="p-1 rounded-lg hover:bg-white/10 transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -1408,18 +1397,16 @@ export function AdminDashboard({
                   </span>
                 </div>
               )}
-
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600">
-                Thao tác sẽ xóa bản ghi trong <code className="bg-white px-1 rounded border">team_members</code> và tự động mở lại trạng thái{' '}
-                <strong>Đang tuyển</strong> cho đội nếu sĩ số xuống dưới 18 VĐV.
-              </div>
             </div>
 
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 disabled={deleteLoading}
-                onClick={() => setMemberToDelete(null)}
+                onClick={() => {
+                  setShowSecondConfirm(false);
+                  setMemberToDelete(null);
+                }}
                 className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer transition disabled:opacity-50"
               >
                 Hủy bỏ
@@ -1427,8 +1414,69 @@ export function AdminDashboard({
               <button
                 type="button"
                 disabled={deleteLoading}
-                onClick={handleConfirmDeleteMember}
+                onClick={() => setShowSecondConfirm(true)}
                 className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Xóa thành viên</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Second Confirmation Popup (Bước 2/2 - Chống bấm nhầm) */}
+      {showSecondConfirm && (teamToDelete || memberToDelete) && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl border-2 border-rose-500 overflow-hidden">
+            <div className="p-4 bg-rose-700 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-300 shrink-0" />
+                <h3 className="text-sm font-black uppercase tracking-wide">
+                  Xác nhận lại lần cuối
+                </h3>
+              </div>
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={() => setShowSecondConfirm(false)}
+                className="p-1 rounded-lg hover:bg-white/20 transition cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3 text-xs text-slate-700 leading-relaxed">
+              {teamToDelete ? (
+                <p>
+                  Dữ liệu sau khi xóa <strong>KHÔNG THỂ KHÔI PHỤC</strong>. Bạn chắc chắn 100% muốn xóa vĩnh viễn nhóm{' '}
+                  <strong className="text-rose-700">{teamToDelete.name}</strong> (cùng{' '}
+                  <strong>{teamToDelete.memberCount} thành viên</strong>) khỏi Supabase?
+                </p>
+              ) : memberToDelete ? (
+                <p>
+                  Dữ liệu sau khi xóa <strong>KHÔNG THỂ KHÔI PHỤC</strong>. Bạn chắc chắn 100% muốn xóa VĐV{' '}
+                  <strong className="text-rose-700">{memberToDelete.member.full_name}</strong> (ID:{' '}
+                  <strong className="font-mono">{memberToDelete.member.user_id || '---'}</strong>) khỏi nhóm{' '}
+                  <strong>{memberToDelete.teamName}</strong>?
+                </p>
+              ) : null}
+            </div>
+
+            <div className="p-4 bg-rose-50/70 border-t border-rose-200 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={() => setShowSecondConfirm(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer transition disabled:opacity-50"
+              >
+                Quay lại
+              </button>
+              <button
+                type="button"
+                disabled={deleteLoading}
+                onClick={teamToDelete ? handleConfirmDeleteTeam : handleConfirmDeleteMember}
+                className="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-rose-700/30 cursor-pointer transition disabled:opacity-50"
               >
                 {deleteLoading ? (
                   <>
@@ -1438,7 +1486,7 @@ export function AdminDashboard({
                 ) : (
                   <>
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Xóa thành viên</span>
+                    <span>Đồng ý xóa ngay</span>
                   </>
                 )}
               </button>
