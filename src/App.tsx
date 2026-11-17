@@ -188,11 +188,13 @@ export default function App() {
   };
 
   const handleNavigateToJoinWithTeam = (teamId: string) => {
+    setSelectedTeam(null);
     setTargetJoinTeamId(teamId);
     setCurrentScreen('join');
   };
 
   const handleNavigateToEdit = (teamId?: string) => {
+    setSelectedTeam(null);
     setTargetEditTeamId(teamId);
     setCurrentScreen('edit');
   };
@@ -203,6 +205,7 @@ export default function App() {
       <Navbar
         currentScreen={currentScreen}
         onNavigate={(screen) => {
+          setSelectedTeam(null);
           setCurrentScreen(screen);
           setTargetJoinTeamId(undefined);
           setTargetEditTeamId(undefined);

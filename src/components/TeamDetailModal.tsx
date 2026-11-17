@@ -177,7 +177,10 @@ export const TeamDetailModal: React.FC<TeamDetailModalProps> = ({
 
               {team.status === 'recruiting' && quota.total < 18 && (
                 <button
-                  onClick={() => onNavigateToJoin(team.id)}
+                  onClick={() => {
+                    onClose();
+                    onNavigateToJoin(team.id);
+                  }}
                   className="px-3.5 py-1.5 rounded-lg bg-[#9f224e] hover:bg-[#851c41] text-white text-xs font-bold uppercase transition-all flex items-center gap-1.5"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
