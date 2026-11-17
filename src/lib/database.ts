@@ -534,18 +534,60 @@ export const api = {
   },
 
   /**
-   * Loại thành viên khỏi đội
+   * Loại thành viên khỏi đội (Xóa trong team_members & tự động cập nhật trạng thái đội nếu < 18 VĐV)
    */
   async kickMember(teamId: string, memberId: string): Promise<boolean> {
     const supabase = getSupabaseClient();
     if (supabase) {
-      try {
-        const { error } = await supabase.from('team_members').delete().eq('id', memberId);
-        if (!error) return true;
-      } catch (e) {
-        console.warn('Supabase kickMember error:', e);
+      const { data: deletedRows, error } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', memberId)
+        .select('id');
+
+      if (error) {
+        throw new Error(`Không thể xóa thành viên trên Supabase: ${error.message}`);
       }
+
+      // Nếu trả về rỗng, kiểm tra xem dòng có còn tồn tại do bị RLS chặn hay không
+      if (!deletedRows || deletedRows.length === 0) {
+        const { data: stillExists } = await supabase
+          .from('team_members')
+          .select('id')
+          .eq('id', memberId)
+          .maybeSingle();
+        if (stillExists) {
+          throw new Error(
+            'Không có quyền xóa bản ghi trong bảng team_members trên Supabase (kiểm tra RLS Policy DELETE).'
+          );
+        }
+      }
+
+      // Kiểm tra lại sĩ số còn lại của đội trên Supabase: nếu < 18 và đội đang completed -> chuyển về recruiting
+      const { count } = await supabase
+        .from('team_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('team_id', teamId);
+
+      if (typeof count === 'number' && count < 18) {
+        await supabase
+          .from('teams')
+          .update({ status: 'recruiting' })
+          .eq('id', teamId)
+          .eq('status', 'completed');
+      }
+
+      // Đồng bộ xóa trong localStorage nếu có cache
+      try {
+        const localMembers = loadLocalMembers();
+        if (localMembers.some((m) => m.id === memberId)) {
+          saveLocalMembers(localMembers.filter((m) => m.id !== memberId));
+        }
+      } catch {}
+
+      return true;
     }
+
     const members = loadLocalMembers();
     const filtered = members.filter((m) => m.id !== memberId);
     saveLocalMembers(filtered);
@@ -560,6 +602,62 @@ export const api = {
       }
     }
 
+    return true;
+  },
+
+  /**
+   * Xóa toàn bộ đội (Xóa toàn bộ thành viên trong team_members và xóa đội trong teams)
+   */
+  async deleteTeam(teamId: string): Promise<boolean> {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      // Bước 1: Xóa tất cả thành viên thuộc đội trong bảng team_members
+      const { error: membersError } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('team_id', teamId);
+
+      if (membersError) {
+        throw new Error(`Lỗi khi xóa danh sách thành viên của đội: ${membersError.message}`);
+      }
+
+      // Bước 2: Xóa đội trong bảng teams
+      const { data: deletedTeams, error: teamError } = await supabase
+        .from('teams')
+        .delete()
+        .eq('id', teamId)
+        .select('id');
+
+      if (teamError) {
+        throw new Error(`Không thể xóa đội trên Supabase: ${teamError.message}`);
+      }
+
+      if (!deletedTeams || deletedTeams.length === 0) {
+        const { data: stillExists } = await supabase
+          .from('teams')
+          .select('id')
+          .eq('id', teamId)
+          .maybeSingle();
+        if (stillExists) {
+          throw new Error(
+            'Không có quyền xóa bản ghi trong bảng teams trên Supabase (kiểm tra RLS Policy DELETE).'
+          );
+        }
+      }
+
+      // Đồng bộ localStorage nếu có
+      try {
+        saveLocalMembers(loadLocalMembers().filter((m) => m.team_id !== teamId));
+        saveLocalTeams(loadLocalTeams().filter((t) => t.id !== teamId));
+      } catch {}
+
+      return true;
+    }
+
+    const members = loadLocalMembers().filter((m) => m.team_id !== teamId);
+    saveLocalMembers(members);
+    const teams = loadLocalTeams().filter((t) => t.id !== teamId);
+    saveLocalTeams(teams);
     return true;
   },
 
